@@ -160,7 +160,7 @@ unsigned long msRemaining()
 {
   int gallonsRemain = gallonsRemaining();
 
-  unsigned long minutesRemaining = gallonsRemain / flowRate;
+  double minutesRemaining = gallonsRemain / flowRate;
 
   return minutesRemaining * 60 * 1000;
 }
@@ -172,11 +172,20 @@ unsigned long timeSinceStart()
 
 String convertMsToString( unsigned long ms )
 {
-  unsigned long ts = ms/1000;               //convert to seconds 
+  
+  
+  unsigned long ts = ms/1000;               //convert to seconds   
+  
   unsigned long hr = ts/3600;                                                        //Number of seconds in an hour
+  
   unsigned long mins = (ts-hr*3600)/60;                                              //Remove the number of hours and calculate the minutes.
   unsigned long sec = ts-hr*3600-mins*60;                                            //Remove the number of hours and minutes, leaving only seconds.
-  String hrMinSec = (String(hr) + ":" + String(mins) + ":" + String(sec));  //Converts to HH:MM:SS string. This can be returned to the calling function.
+      
+  String hrMinSec = String(hr);
+  hrMinSec.concat(":");
+  hrMinSec.concat( String(mins) );
+  hrMinSec.concat(":");
+  hrMinSec.concat( String(sec) );
 
   return hrMinSec;
 }
