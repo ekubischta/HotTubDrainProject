@@ -20,15 +20,25 @@
 //Flow sensor pin
 #define FLOW_PIN              2
 
+//Flow sensor pin
+#define DISPLAY_MODE_BUTTON_PIN      4
+
 //Pin to the LED that will blink
 #define FLOW_BLINK_PIN        7
 
 #define MAX_BLINK_SPEED_MS    1250
+#define MIN_BLINK_SPEED_MS    100
 #define MAX_FLOW_RATE         20
 
 #define SAMPLE_TIME_MS        1000    //How many MS to sample for when calculating per sec data
 #define ML_PER_PULSE          2.25         //Number of milliliters per pulse
 #define LITERS_PER_GALLON     3.785411784  //number of liters in a gallon
+
+
+#define DISPLAY_MODE_COUNT    2   //How many modes are there?
+#define DISPLAY_MODE_BASIC    1   //Mode 1 is the basic mode
+#define DISPLAY_MODE_GPM      2   //Mode 2 shows just GPM and Total Gallons
+
 
 //These are declared volatile because they are set during an interrupt
 volatile int counter          = 0;     //counter for sampling, resets every loop
@@ -45,6 +55,17 @@ unsigned int TARGET_GALLONS            = 300;  //How many gallons are in the hot
 
 unsigned long START_TIME                = 0;   //set during setup
 
+unsigned int currentDisplayMode         = DISPLAY_MODE_BASIC ;   //The first mode is default
+
+
+int displayButtonState;                       // the current reading from the input pin
+int displayButtonStateLast              = LOW;  // the previous reading from the input pin
+
+
+unsigned long displayButtonLastDebounceTime  = 0;  // the last time the output pin was toggled
+unsigned long displayButtonDebounceDelay     = 50;    // the debounce time; increase if the output flickers
+
+
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
   OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
@@ -60,6 +81,7 @@ void setup() {
   pinMode(FLOW_BLINK_PIN, OUTPUT);    //Sets the pin as an input
   attachInterrupt(0, Flow, RISING);  //Configures interrupt 0 (pin 2 on the Arduino Uno) to run the function "Flow" 
 
+  pinMode(DISPLAY_MODE_BUTTON_PIN, INPUT);           //Sets the pin as an input
   
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -85,14 +107,13 @@ void loop() {
 
   if( hitSampleTime() )
   {
-    
-    sampleFlowRate();  
+    sampleFlowRate();      
+    writeDisplay();
   }
   
-
   blinkFlowPin();
-  
-  writeDisplay();
+
+  checkDisplayModeState();
 
 }
 
@@ -160,15 +181,54 @@ String convertMsToString( unsigned long ms )
   return hrMinSec;
 }
 
+void checkDisplayModeState()
+{
+  int reading = digitalRead(DISPLAY_MODE_BUTTON_PIN);
+
+  // check to see if you just pressed the button
+  // (i.e. the input went from LOW to HIGH), and you've waited long enough
+  // since the last press to ignore any noise:
+
+  // If the switch changed, due to noise or pressing:
+  if (reading != displayButtonStateLast) {
+    // reset the debouncing timer
+    displayButtonLastDebounceTime = millis();
+  }
+
+  if ((millis() - displayButtonLastDebounceTime) > displayButtonDebounceDelay) {
+    // whatever the reading is at, it's been there for longer than the debounce
+    // delay, so take it as the actual current state:
+
+    // if the button state has changed:
+    if (reading != displayButtonState) {
+      displayButtonState = reading;
+
+      // only advance the mode if displayButtonState is HIGH
+      if (displayButtonState == HIGH) {
+
+        currentDisplayMode++;
+
+        if( currentDisplayMode > DISPLAY_MODE_COUNT )
+          currentDisplayMode = 1;//Loop back around
+        
+      }
+    }
+  }
+
+  // save the reading. Next time through the loop, it'll be the lastButtonState:
+  displayButtonStateLast = reading;
+}
+
 void writeDisplay()
 {
   
-  String perMinString = "G/M: ";
-  String perMinCountString = "c/S: ";
-  String totalString = "G:   ";
-  String totalCountString = "TC:  ";
-  String runTimeString = "Run Time:  ";
-  String remainTimeString = "Remaining:  ";
+  String perMinString =             "G/M : ";
+  String perMinCountString =        "c/S : ";
+  String totalString =              "G   : ";
+  String totalCountString =         "TC  : ";
+  String gallonsRemainingString =   "Gal Remain : ";
+  String runTimeString =            "Run Time   : ";
+  String remainTimeString =         "Remaining  : ";
   String runTime = convertMsToString( timeSinceStart() );
   String remainTime = convertMsToString( msRemaining() );
 
@@ -192,9 +252,9 @@ void writeDisplay()
   display.print(totalGallons);
   display.println("");
 
-  //display.print(totalCountString);
-  //display.print(totalCount);
-  //display.println("");
+  display.print(gallonsRemainingString);
+  display.print(gallonsRemaining());
+  display.println("");
 
   display.print(runTimeString);
   display.println(runTime);
@@ -208,14 +268,24 @@ void writeDisplay()
   
 }
 
+/**
+ * Same as map, but returns a float
+ */
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+ return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+
 unsigned int msBetweenBlinks()
 {
-  int flowRateInverted = 0;
+
+  double flowRateInverted = 0;
 
   if( flowRate < MAX_FLOW_RATE )    
     flowRateInverted = MAX_FLOW_RATE - flowRate;
 
-  int ms = map( flowRateInverted, 0, MAX_FLOW_RATE, 0, MAX_BLINK_SPEED_MS);
+  int ms = mapfloat( flowRateInverted, 0, MAX_FLOW_RATE, MIN_BLINK_SPEED_MS, MAX_BLINK_SPEED_MS);
 
   return ms;
   
@@ -241,19 +311,20 @@ bool isFlowing()
 
 void blinkFlowPin()
 {
-  if( !isFlowing() )
-  {
-    //Turn off the led
-    if( digitalRead(FLOW_BLINK_PIN) )
-      digitalWrite(FLOW_BLINK_PIN, LOW );
-      
-    return false;
-  }
   
   unsigned long msSinceBlink = millis() - timeOfLastBlink;
 
   if( msSinceBlink > msBetweenBlinks() )
   {
+    if( !isFlowing() )
+    {
+      //Turn off the led
+      if( digitalRead(FLOW_BLINK_PIN) )
+        digitalWrite(FLOW_BLINK_PIN, LOW );
+        
+      return;
+    }
+    
     togglePin(FLOW_BLINK_PIN); 
     timeOfLastBlink = millis();
   }    
