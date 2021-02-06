@@ -35,10 +35,10 @@
 #define LITERS_PER_GALLON     3.785411784  //number of liters in a gallon
 
 
-#define DISPLAY_MODE_COUNT    2   //How many modes are there?
+#define DISPLAY_MODE_COUNT    3   //How many modes are there?
 #define DISPLAY_MODE_BASIC    1   //Mode 1 is the basic mode
 #define DISPLAY_MODE_GPM      2   //Mode 2 shows just GPM and Total Gallons
-
+#define DISPLAY_MODE_REMAIN   3   //Mode 3 shows Gallons and Time Remaining
 
 //These are declared volatile because they are set during an interrupt
 volatile int counter          = 0;     //counter for sampling, resets every loop
@@ -221,6 +221,22 @@ void checkDisplayModeState()
 
 void writeDisplay()
 {
+  switch( currentDisplayMode )
+  {
+    case DISPLAY_MODE_BASIC : 
+      writeDisplay_BASIC();
+      break;
+    case DISPLAY_MODE_GPM : 
+      writeDisplay_GPM();
+      break;   
+    case DISPLAY_MODE_REMAIN : 
+      writeDisplay_REMAIN();
+      break;     
+  }
+}
+
+void writeDisplay_BASIC()
+{
   
   String perMinString =             "G/M : ";
   String perMinCountString =        "c/S : ";
@@ -267,6 +283,69 @@ void writeDisplay()
   display.display();
   
 }
+
+
+void writeDisplay_GPM()
+{
+  
+  String perMinString =             "Gal / Min:";
+  String totalString =              "Total Gal:";
+
+  display.clearDisplay();
+
+  display.setTextSize(2);             // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE);        // Draw white text
+  display.setCursor(0,0);             // Start position
+  display.setTextSize(2);             // Draw 2X-scale text
+    
+  display.print(perMinString);
+  display.println("");
+  display.print("   ");
+  display.print(flowRate);
+  display.println("");
+  
+  display.print(totalString);
+  display.println("");
+  display.print("   ");
+  display.print(totalGallons);
+    
+  display.display();
+  
+}
+
+void writeDisplay_REMAIN()
+{
+  
+  
+  String gallonsRemainingString =   "Gal Remain";
+  
+  String remainTimeString =         "Time Left";
+  String remainTime = convertMsToString( msRemaining() );
+
+  display.clearDisplay();
+
+  display.setTextSize(2);             // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE);        // Draw white text
+  display.setCursor(0,0);             // Start position
+  display.setTextSize(2);             // Draw 2X-scale text
+    
+
+  display.print(gallonsRemainingString);
+  display.println("");
+  display.print("   ");
+  display.print(gallonsRemaining());
+  display.println("");
+
+  display.print(remainTimeString);
+  display.println("  ");
+  display.println(remainTime);
+  
+  
+
+  display.display();
+  
+}
+
 
 /**
  * Same as map, but returns a float
