@@ -357,8 +357,8 @@ void writeDisplay_REMAIN()
   display.println("");
 
   display.print(remainTimeString);
-  display.println("  ");
-  display.println(msRemaining());
+  display.print("  ");
+  writeTimeToDisplay( msRemaining() );
   
   
 
