@@ -31,7 +31,7 @@
 #define MAX_FLOW_RATE         20
 
 #define SAMPLE_TIME_MS        1000    //How many MS to sample for when calculating per sec data
-#define ML_PER_PULSE          2.25         //Number of milliliters per pulse
+#define ML_PER_PULSE          2.7         //Number of milliliters per pulse, based on Eric test on 2/13/21
 #define LITERS_PER_GALLON     3.785411784  //number of liters in a gallon
 
 
@@ -145,7 +145,7 @@ void sampleFlowRate()
   flowRate = (counter * ML_PER_PULSE);        //Take counted pulses in the last second and multiply by 2.25mL 
   flowRate = flowRate * ( SAMPLE_TIME_MS/1000 ) * 60;         //Convert seconds to minutes, giving you mL / Minute
   flowRate = flowRate / 1000;       //Convert mL to Liters, giving you Liters / Minute
-  flowRate = flowRate / 3.785411784;       //Convert Liters to gallons
+  flowRate = flowRate / LITERS_PER_GALLON;       //Convert Liters to gallons
 
 
   totalGallons = (totalCount * ML_PER_PULSE);        //Take counted pulses in the last second and multiply by 2.25mL 
