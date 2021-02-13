@@ -55,7 +55,7 @@ unsigned int TARGET_GALLONS            = 300;  //How many gallons are in the hot
 
 unsigned long START_TIME                = 0;   //set during setup
 
-unsigned int currentDisplayMode         = DISPLAY_MODE_BASIC ;   //The first mode is default
+unsigned int currentDisplayMode         = DISPLAY_MODE_GPM ;   //The first mode is default
 
 
 int displayButtonState;                       // the current reading from the input pin
@@ -91,10 +91,18 @@ void setup() {
   }
 
 
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
+  display.clearDisplay();
+  
+  
+  display.setTextSize(2);   
+  display.setTextColor(SSD1306_WHITE);        // Draw white text
+  display.setCursor(0,0);             // Start position
+
+  display.println("Gettin' HOT.. Gettin' HOT in the HotTub");
+  
   display.display();
-  delay(1000); // Pause for 1 seconds
+  
+  delay(2000); // Pause for 1 seconds
 
   // Clear the buffer
   display.clearDisplay();
@@ -170,24 +178,30 @@ unsigned long timeSinceStart()
   return millis() - START_TIME;
 }
 
-String convertMsToString( unsigned long ms )
+void writeTimeToDisplay( unsigned long ms )
 {
   
   
-  unsigned long ts = ms/1000;               //convert to seconds   
+  unsigned int ts = ms/1000;               //convert to seconds   
   
-  unsigned long hr = ts/3600;                                                        //Number of seconds in an hour
+  unsigned int hr = ts/3600;                                                        //Number of seconds in an hour
   
-  unsigned long mins = (ts-hr*3600)/60;                                              //Remove the number of hours and calculate the minutes.
-  unsigned long sec = ts-hr*3600-mins*60;                                            //Remove the number of hours and minutes, leaving only seconds.
-      
-  String hrMinSec = String(hr);
-  hrMinSec.concat(":");
-  hrMinSec.concat( String(mins) );
-  hrMinSec.concat(":");
-  hrMinSec.concat( String(sec) );
+  unsigned int mins = (ts-hr*3600)/60;                                              //Remove the number of hours and calculate the minutes.
+  unsigned int sec = ts-hr*3600-mins*60;    //Remove the number of hours and minutes, leaving only seconds.
 
-  return hrMinSec;
+  display.print(hr);
+  display.print(":");
+  if( mins < 10 )
+    display.print("0");
+  display.print(mins);
+  display.print(":");
+  
+  if( sec < 10 )
+    display.print("0");
+    
+  display.print(sec);
+  
+ 
 }
 
 void checkDisplayModeState()
@@ -254,8 +268,6 @@ void writeDisplay_BASIC()
   String gallonsRemainingString =   "Gal Remain : ";
   String runTimeString =            "Run Time   : ";
   String remainTimeString =         "Remaining  : ";
-  String runTime = convertMsToString( timeSinceStart() );
-  String remainTime = convertMsToString( msRemaining() );
 
   display.clearDisplay();
 
@@ -268,9 +280,8 @@ void writeDisplay_BASIC()
   display.print(flowRate);
   display.println("");
 
-
-  display.print(perMinCountString);
-  display.print(counter);
+  display.print(totalCountString);
+  display.print(totalCount);
   display.println("");
   
   display.print(totalString);
@@ -282,10 +293,11 @@ void writeDisplay_BASIC()
   display.println("");
 
   display.print(runTimeString);
-  display.println(runTime);
+  writeTimeToDisplay( timeSinceStart() );
+  display.println("");
   
   display.print(remainTimeString);
-  display.println(remainTime);
+  writeTimeToDisplay( msRemaining() );
   
   
 
@@ -329,7 +341,6 @@ void writeDisplay_REMAIN()
   String gallonsRemainingString =   "Gal Remain";
   
   String remainTimeString =         "Time Left";
-  String remainTime = convertMsToString( msRemaining() );
 
   display.clearDisplay();
 
@@ -347,7 +358,7 @@ void writeDisplay_REMAIN()
 
   display.print(remainTimeString);
   display.println("  ");
-  display.println(remainTime);
+  display.println(msRemaining());
   
   
 
